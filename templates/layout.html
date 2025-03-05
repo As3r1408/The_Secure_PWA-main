@@ -46,8 +46,8 @@
         <ul class="topnav">
           <li><a href="{{ url_for('home') }}">Home</a></li>
           <li><a href="{{ url_for('signup') }}">Signup</a></li>
-          {% if state %}
-          <li><a href="{{ url_for('addFeedback') }}">Success</a></li>
+          {% if 'username' in session %}
+          <li><a href="{{ url_for('addFeedback') }}">Feedback</a></li>
           <li><a href="{{ url_for('home') }}">Logout</a></li>
           {% endif %}
         </ul>

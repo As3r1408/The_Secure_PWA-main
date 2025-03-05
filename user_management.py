@@ -4,24 +4,36 @@ import time
 import random
 from werkzeug.security import generate_password_hash, check_password_hash
 import html
+import pyotp
 
 def validate_username(username):
     """Ensure the username contains only alphanumeric characters and is 3-20 characters long."""
     return re.match(r"^[a-zA-Z0-9]{3,20}$", username) is not None
+
+def execute_query(query, params=(), retries=5):
+    for attempt in range(retries):
+        try:
+            con = sql.connect("database_files/database.db")
+            cur = con.cursor()
+            cur.execute(query, params)
+            con.commit()
+            con.close()
+            return cur
+        except sql.OperationalError as e:
+            if "database is locked" in str(e) and attempt < retries - 1:
+                time.sleep(0.1 * (2 ** attempt))  # Exponential backoff
+            else:
+                raise
 
 def insertUser(username, password, dob):
     if not validate_username(username):
         raise ValueError("Invalid username format")
 
     hashed_password = generate_password_hash(password)  # Hash passwords before storing
-    con = sql.connect("database_files/database.db")
-    cur = con.cursor()
-    cur.execute(
-        "INSERT INTO users (username, password, dateOfBirth) VALUES (?, ?, ?)",
-        (username, hashed_password, dob),
-    )
-    con.commit()
-    con.close()
+    base32secret = pyotp.random_base32()  # Generate a base32 secret for 2FA
+    query = "INSERT INTO users (username, password, dateOfBirth, otp_secret) VALUES (?, ?, ?, ?)"
+    params = (username, hashed_password, dob, base32secret)
+    execute_query(query, params)
 
 def retrieveUsers(username, password):
     if not validate_username(username):
@@ -29,14 +41,14 @@ def retrieveUsers(username, password):
 
     con = sql.connect("database_files/database.db")
     cur = con.cursor()
-    cur.execute("SELECT password FROM users WHERE username = ?", (username,))
+    cur.execute("SELECT password, otp_secret FROM users WHERE username = ?", (username,))
     row = cur.fetchone()
 
     if row is None:
         con.close()
         return False
 
-    hashed_password = row[0]
+    hashed_password, otp_secret = row
     if not check_password_hash(hashed_password, password):  # Verify password securely
         con.close()
         return False
@@ -47,15 +59,13 @@ def retrieveUsers(username, password):
 
     time.sleep(random.uniform(0.08, 0.09))  # Keep response time uniform to prevent timing attacks
     con.close()
-    return True
+    return otp_secret
 
 def insertFeedback(feedback):
     sanitized_feedback = html.escape(feedback)  # Prevent XSS
-    con = sql.connect("database_files/database.db")
-    cur = con.cursor()
-    cur.execute("INSERT INTO feedback (feedback) VALUES (?)", (sanitized_feedback,))
-    con.commit()
-    con.close()
+    query = "INSERT INTO feedback (feedback) VALUES (?)"
+    params = (sanitized_feedback,)
+    execute_query(query, params)
 
 def listFeedback():
     con = sql.connect("database_files/database.db")
@@ -63,11 +73,5 @@ def listFeedback():
     data = cur.execute("SELECT * FROM feedback").fetchall()
     con.close()
 
-    with open("templates/partials/success_feedback.html", "w") as f:
-        if not data:
-            f.write("<p>No feedback yet.</p>")  # Display message if no feedback exists
-        else:
-            for row in data:
-                f.write("<p>\n")
-                f.write(f"{html.escape(row[1])}\n")  # Escape content to prevent XSS
-                f.write("</p>\n")
+    feedbacks = [html.escape(row[1]) for row in data]  # Escape content to prevent XSS
+    return feedbacks

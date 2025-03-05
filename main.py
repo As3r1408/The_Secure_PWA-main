@@ -1,7 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
 import user_management as dbHandler
+from flask_wtf.csrf import CSRFProtect
+import pyotp
+from forms import LoginForm, SignupForm, FeedbackForm, OTPForm
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your_secret_key'
+csrf = CSRFProtect(app)
 
 # Security: Restrict redirects to internal routes
 def is_safe_redirect(url):
@@ -9,54 +14,77 @@ def is_safe_redirect(url):
 
 @app.route("/success.html", methods=["GET", "POST"])
 def addFeedback():
+    form = FeedbackForm()
     if request.method == "GET":
-        url = request.args.get("url", "")
-        if is_safe_redirect(url):
-            return redirect(url, code=302)
-        return redirect(url_for("home"))  # Redirect safely
+        feedbacks = dbHandler.listFeedback()  # Get feedback data
+        return render_template("success.html", form=form, state=True, value="Back", feedbacks=feedbacks)
 
-    if request.method == "POST":
-        feedback = request.form.get("feedback", "").strip()
+    if request.method == "POST" and form.validate_on_submit():
+        feedback = form.feedback.data.strip()
         dbHandler.insertFeedback(feedback)
-
-    dbHandler.listFeedback()  # Ensure feedback updates before rendering
-    return render_template("success.html", state=True, value="Back")
+        feedbacks = dbHandler.listFeedback()  # Get updated feedback data
+        return render_template("success.html", form=form, state=True, value="Back", feedbacks=feedbacks)
 
 @app.route("/signup.html", methods=["POST", "GET"])
 def signup():
+    form = SignupForm()
     if request.method == "GET":
-        return render_template("signup.html")
+        return render_template("signup.html", form=form)
 
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "").strip()
-        dob = request.form.get("dob", "").strip()
+    if request.method == "POST" and form.validate_on_submit():
+        username = form.username.data.strip()
+        password = form.password.data.strip()
+        dob = form.dob.data.strip()
 
         try:
             dbHandler.insertUser(username, password, dob)
-            return redirect(url_for("home"))
+            otp_secret = dbHandler.retrieveUsers(username, password)
+            return render_template("signup_success.html", otp_secret=otp_secret)
         except ValueError as e:
-            return render_template("signup.html", error=str(e))
+            return render_template("signup.html", form=form, error=str(e))
 
-    return render_template("signup.html")
+    return render_template("signup.html", form=form)
 
 @app.route("/index.html", methods=["POST", "GET"])
 @app.route("/", methods=["POST", "GET"])
 def home():
+    form = LoginForm()
     if request.method == "GET":
-        return render_template("index.html")
+        return render_template("index.html", form=form)
 
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "").strip()
-
-        isLoggedIn = dbHandler.retrieveUsers(username, password)
-        if isLoggedIn:
-            return render_template("success.html", value=username, state=True)
+    if request.method == "POST" and form.validate_on_submit():
+        username = form.username.data.strip()
+        password = form.password.data.strip()
+        otp_secret = dbHandler.retrieveUsers(username, password)
+        if otp_secret:
+            session['username'] = username
+            session['otp_secret'] = otp_secret
+            return redirect(url_for("two_factor"))
         else:
-            return render_template("index.html", error="Invalid username or password.")
+            return render_template("index.html", form=form, error="Invalid username or password.")
+    return render_template("index.html", form=form)
 
-    return render_template("index.html")
+@app.route("/two_factor", methods=["GET", "POST"])
+def two_factor():
+    if 'username' not in session:
+        return redirect(url_for('home'))
+
+    form = OTPForm()
+    if request.method == "POST" and form.validate_on_submit():
+        otp = form.otp.data.strip()
+        totp = pyotp.TOTP(session['otp_secret'])
+        if totp.verify(otp):
+            return redirect(url_for("addFeedback"))
+        else:
+            return render_template("two_factor.html", form=form, error="Invalid OTP")
+
+    return render_template("two_factor.html", form=form)
+
+@app.route("/protected")
+def protected():
+    if 'username' not in session:
+        return redirect(url_for('home'))
+    return 'You are authenticated!'
 
 # Secure error handling
 @app.errorhandler(404)

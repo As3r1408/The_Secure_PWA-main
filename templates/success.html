@@ -1,22 +1,22 @@
 {% extends 'layout.html' %} {% block content %}
 <h1>Welcome {{ value }}!</h1>
 <form action="/success.html" method="post" class="box">
+  {{ form.hidden_tag() }}
   <div class="input__wrapper">
-    <textarea
-      style="height: 100px; vertical-align: top"
-      name="feedback"
-      id="feedback"
-      placeholder="Enter your feedback here"
-      class="input__field"
-      required
-    ></textarea>
+    {{ form.feedback.label }}<br />
+    {{ form.feedback(class="input__field", style="height: 100px; vertical-align:
+    top") }}
   </div>
-  <div class="input__wrapper">
-    <input type="submit" class="btn" value="Submit Feedback" />
-  </div>
+  <div class="input__wrapper">{{ form.submit(class="btn") }}</div>
 </form>
 <hr />
 <br />
 <h1>Others' Feedback</h1>
-<div>{% include "partials/success_feedback.html" %}</div>
+<div>
+  {% if feedbacks %} {% for feedback in feedbacks %}
+  <p>{{ feedback }}</p>
+  {% endfor %} {% else %}
+  <p>No feedback yet.</p>
+  {% endif %}
+</div>
 {% endblock %}

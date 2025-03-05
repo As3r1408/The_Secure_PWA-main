@@ -1,14 +1,10 @@
 {% extends 'layout.html' %} {% block content %}
-<h1>Login</h1>
-<form action="/" method="post" class="box">
+<h1>Two-Factor Authentication</h1>
+<form action="/two_factor" method="post" class="box">
   {{ form.hidden_tag() }}
   <div class="input__wrapper">
-    {{ form.username.label }}<br />
-    {{ form.username(class="input__field") }}
-  </div>
-  <div class="input__wrapper">
-    {{ form.password.label }}<br />
-    {{ form.password(class="input__field") }}
+    {{ form.otp.label }}<br />
+    {{ form.otp(class="input__field") }}
   </div>
   <div class="input__wrapper">{{ form.submit(class="btn") }}</div>
 </form>

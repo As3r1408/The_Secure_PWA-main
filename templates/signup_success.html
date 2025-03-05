@@ -1,0 +1,13 @@
+{% extends 'layout.html' %} {% block content %}
+<h1>Signup Successful</h1>
+<p>Your account has been created successfully.</p>
+<p>
+  Please use the following OTP secret to set up your two-factor authentication:
+</p>
+<p><strong>{{ otp_secret }}</strong></p>
+<p>
+  Use an authenticator app like Google Authenticator or Authy to scan the QR
+  code or manually enter the OTP secret.
+</p>
+<a href="{{ url_for('home') }}">Go to Login</a>
+{% endblock %}

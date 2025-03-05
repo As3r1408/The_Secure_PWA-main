@@ -1,18 +1,19 @@
-{% extends 'layout.html' %}
-{% block content %}
+{% extends 'layout.html' %} {% block content %}
 <h1>Signup Form</h1>
 <form action="/signup.html" method="POST" class="box">
-    <div class="input__wrapper">
-        <input type="text" name="username" placeholder="Username" class="input__field">
-    </div>            
-    <div class="input__wrapper">
-        <input type="password" name="password" placeholder="Password" class="input__field">
-    </div>
-    <div class="input__wrapper">
-        <input type="dateOfBirth" name="dob" placeholder="Date of Birth" class="input__field">
-    </div>
-    <div class="input__wrapper">
-        <button type="submit" class="btn">Submit</button>
-    </div>
+  {{ form.hidden_tag() }}
+  <div class="input__wrapper">
+    {{ form.username.label }}<br />
+    {{ form.username(class="input__field") }}
+  </div>
+  <div class="input__wrapper">
+    {{ form.password.label }}<br />
+    {{ form.password(class="input__field") }}
+  </div>
+  <div class="input__wrapper">
+    {{ form.dob.label }}<br />
+    {{ form.dob(class="input__field") }}
+  </div>
+  <div class="input__wrapper">{{ form.submit(class="btn") }}</div>
 </form>
 {% endblock %}
